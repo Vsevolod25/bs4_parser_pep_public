@@ -33,7 +33,6 @@ def configure_argument_parser(available_modes):
 def configure_logging():
     log_dir = BASE_DIR / 'logs'
     log_dir.mkdir(exist_ok=True)
-    # Получение абсолютного пути до файла с логами.
     log_file = log_dir / 'parser.log'
 
     rotating_handler = RotatingFileHandler(

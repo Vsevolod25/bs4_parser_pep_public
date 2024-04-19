@@ -7,7 +7,7 @@ from bs4 import BeautifulSoup
 from tqdm import tqdm
 
 from configs import configure_argument_parser, configure_logging
-from constants import BASE_DIR, MAIN_DOC_URL
+from constants import BASE_DIR, EXPECTED_STATUS, MAIN_DOC_URL, MAIN_PEP_URL
 from outputs import control_output
 from utils import find_tag, get_response
 
@@ -97,10 +97,60 @@ def download(session):
     logging.info(f'Архив был загружен и сохранён: {archive_path}')
 
 
+def pep(session):
+    response = get_response(session, MAIN_PEP_URL)
+    if response is None:
+        return
+    
+    soup = BeautifulSoup(response.text, features='lxml')
+
+    main_tag = find_tag(soup, 'section', {'id': 'numerical-index'})
+    table_tag = find_tag(main_tag, 'tbody')
+    row_tags = table_tag.find_all('tr')
+    
+    mismatch = []
+    statuses = {}
+    total = 0
+    for row_tag in row_tags:
+        preview_status_tag = find_tag(row_tag, 'abbr')
+        preview_status = EXPECTED_STATUS[preview_status_tag.text[1:]]
+        a_tag = find_tag(row_tag, 'a', {'class': 'pep reference internal'})
+        href = a_tag['href']
+        link = urljoin(MAIN_PEP_URL, href)
+        response = get_response(session, link)
+        if response is None:
+            continue
+        soup = BeautifulSoup(response.text, features='lxml')
+        status_tag = soup.find(string='Status')
+        page_status = status_tag.next_sibling.text
+        if page_status in statuses.keys():
+            statuses[page_status] += 1
+        else:
+            statuses[page_status] = 1
+        total += 1
+        if page_status != preview_status:
+            mismatch.append((link, page_status, preview_status))
+    
+    results = [('Статус', 'Количество')]
+    for status in statuses.keys():
+        results.append((status, statuses[status]))
+    results.append(('Total', total))
+    if mismatch:
+        logging.info('Обнаружены несовпадающие статусы: \n')
+        for pep in mismatch:
+            print(
+                f'{pep[0]} \n'
+                f'Статус в карточке: {pep[1]} \n'
+                f'Ожидаемые статусы: {pep[2]} \n'
+            )
+    return results
+
+
 MODE_TO_FUNCTION = {
     'whats-new': whats_new,
     'latest-versions': latest_versions,
     'download': download,
+    'pep': pep
 }
 
 
