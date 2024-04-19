@@ -121,14 +121,14 @@ def pep(session):
         if response is None:
             continue
         soup = BeautifulSoup(response.text, features='lxml')
-        status_tag = soup.find(string='Status')
-        page_status = status_tag.next_sibling.text
+        status_tag = find_tag(soup, 'abbr')
+        page_status = status_tag.text
         if page_status in statuses.keys():
             statuses[page_status] += 1
         else:
             statuses[page_status] = 1
         total += 1
-        if page_status != preview_status:
+        if page_status not in preview_status:
             mismatch.append((link, page_status, preview_status))
     
     results = [('Статус', 'Количество')]
@@ -136,9 +136,9 @@ def pep(session):
         results.append((status, statuses[status]))
     results.append(('Total', total))
     if mismatch:
-        logging.info('Обнаружены несовпадающие статусы: \n')
+        logging.info('Обнаружены несовпадающие статусы! \n')
         for pep in mismatch:
-            print(
+            logging.info(
                 f'{pep[0]} \n'
                 f'Статус в карточке: {pep[1]} \n'
                 f'Ожидаемые статусы: {pep[2]} \n'
