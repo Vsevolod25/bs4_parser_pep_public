@@ -17,12 +17,14 @@ def whats_new(session):
     response = get_response(session, whats_new_url)
     if response is None:
         return
-    
+
     soup = BeautifulSoup(response.text, features='lxml')
 
     main_div = find_tag(soup, 'section', attrs={'id': 'what-s-new-in-python'})
     div_with_ul = find_tag(main_div, 'div', attrs={'class': 'toctree-wrapper'})
-    sections_by_python = div_with_ul.find_all('li', attrs={'class': 'toctree-l1'})
+    sections_by_python = div_with_ul.find_all(
+        'li', attrs={'class': 'toctree-l1'}
+    )
 
     results = [('Ссылка на статью', 'Заголовок', 'Редактор, Автор')]
     for section in tqdm(sections_by_python):
@@ -45,7 +47,7 @@ def latest_versions(session):
     response = get_response(session, MAIN_DOC_URL)
     if response is None:
         return
-    
+
     soup = BeautifulSoup(response.text, features='lxml')
 
     sidebar = find_tag(soup, 'div', attrs={'class': 'sphinxsidebarwrapper'})
@@ -67,7 +69,7 @@ def latest_versions(session):
         else:
             version, status = a_tag.text, ''
         results.append((link, version, status))
-    
+
     return results
 
 
@@ -76,12 +78,14 @@ def download(session):
     response = get_response(session, downloads_url)
     if response is None:
         return
-    
+
     soup = BeautifulSoup(response.text, features='lxml')
 
     main_tag = find_tag(soup, 'div', {'role': 'main'})
     table_tag = find_tag(main_tag, 'table', {'class': 'docutils'})
-    pdf_a4_tag = find_tag(table_tag, 'a', {'href': re.compile(r'.+pdf-a4\.zip$')})
+    pdf_a4_tag = find_tag(
+        table_tag, 'a', {'href': re.compile(r'.+pdf-a4\.zip$')}
+    )
     pdf_a4_link = pdf_a4_tag['href']
     archive_url = urljoin(downloads_url, pdf_a4_link)
 
@@ -101,13 +105,13 @@ def pep(session):
     response = get_response(session, MAIN_PEP_URL)
     if response is None:
         return
-    
+
     soup = BeautifulSoup(response.text, features='lxml')
 
     main_tag = find_tag(soup, 'section', {'id': 'numerical-index'})
     table_tag = find_tag(main_tag, 'tbody')
     row_tags = table_tag.find_all('tr')
-    
+
     mismatch = []
     statuses = {}
     total = 0
@@ -130,7 +134,7 @@ def pep(session):
         total += 1
         if page_status not in preview_status:
             mismatch.append((link, page_status, preview_status))
-    
+
     results = [('Статус', 'Количество')]
     for status in statuses.keys():
         results.append((status, statuses[status]))
@@ -174,4 +178,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main() 
+    main()
