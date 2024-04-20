@@ -7,7 +7,7 @@ from exceptions import ParserFindTagException
 def create_soup(session, url):
     response = get_response(session, url)
     if response is None:
-        return
+        raise RequestException
     return BeautifulSoup(response.text, features='lxml')
 
 

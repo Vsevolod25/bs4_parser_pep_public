@@ -3,6 +3,7 @@ import re
 from urllib.parse import urljoin
 
 import requests_cache
+from bs4 import BeautifulSoup
 from requests import RequestException
 from tqdm import tqdm
 
@@ -12,14 +13,12 @@ from constants import (
 )
 from exceptions import LatestVersionsMissingException, ParserFindTagException
 from outputs import control_output
-from utils import create_soup, find_tag
+from utils import create_soup, find_tag, get_response
 
 
 def whats_new(session):
     whats_new_url = urljoin(MAIN_DOC_URL, 'whatsnew/')
     soup = create_soup(session, whats_new_url)
-    if soup is None:
-        return
 
     sections_by_python = soup.select(
         '#what-s-new-in-python div.toctree-wrapper li.toctree-l1'
@@ -30,9 +29,10 @@ def whats_new(session):
         version_a_tag = section.find('a')
         href = version_a_tag['href']
         version_link = urljoin(whats_new_url, href)
-        soup = create_soup(session, version_link)
-        if soup is None:
+        response = get_response(session, version_link)
+        if response is None:
             continue
+        soup = BeautifulSoup(response.text, features='lxml')
         results.append(
             (
                 version_link,
@@ -46,8 +46,6 @@ def whats_new(session):
 
 def latest_versions(session):
     soup = create_soup(session, MAIN_DOC_URL)
-    if soup is None:
-        return
 
     sidebar = find_tag(soup, 'div', attrs={'class': 'sphinxsidebarwrapper'})
     ul_tags = sidebar.find_all('ul')
@@ -74,8 +72,6 @@ def latest_versions(session):
 def download(session):
     downloads_url = urljoin(MAIN_DOC_URL, 'download.html')
     soup = create_soup(session, downloads_url)
-    if soup is None:
-        return
 
     pdf_a4_link = soup.select_one(
         'div.body table.docutils a[href$="pdf-a4.zip"]'
@@ -114,8 +110,6 @@ def pep(session):
             href = a_tag['href']
             link = urljoin(MAIN_PEP_URL, href)
             soup = create_soup(session, link)
-            if soup is None:
-                continue
             status_tag = find_tag(soup, 'abbr')
             page_status = status_tag.text
             statuses[page_status] = statuses.get(page_status, 0) + 1
