@@ -3,23 +3,16 @@ import re
 from urllib.parse import urljoin
 
 import requests_cache
-from bs4 import BeautifulSoup
+from requests import RequestException
 from tqdm import tqdm
 
 from configs import configure_argument_parser, configure_logging
 from constants import (
     BASE_DIR, DOWNLOADS_DIR, EXPECTED_STATUS, MAIN_DOC_URL, MAIN_PEP_URL
 )
-from exceptions import LatestVersionsMissingException
+from exceptions import LatestVersionsMissingException, ParserFindTagException
 from outputs import control_output
-from utils import find_tag, get_response
-
-
-def create_soup(session, url):
-    response = get_response(session, url)
-    if response is None:
-        return
-    return BeautifulSoup(response.text, features='lxml')
+from utils import create_soup, find_tag
 
 
 def whats_new(session):
@@ -110,22 +103,29 @@ def pep(session):
     table_tag = find_tag(main_tag, 'tbody')
     row_tags = table_tag.find_all('tr')
 
+    errors = []
     mismatch = []
     statuses = {}
     for row_tag in tqdm(row_tags):
-        preview_status_tag = find_tag(row_tag, 'abbr')
-        preview_status = EXPECTED_STATUS[preview_status_tag.text[1:]]
-        a_tag = find_tag(row_tag, 'a', {'class': 'pep reference internal'})
-        href = a_tag['href']
-        link = urljoin(MAIN_PEP_URL, href)
-        soup = create_soup(session, link)
-        if soup is None:
-            continue
-        status_tag = find_tag(soup, 'abbr')
-        page_status = status_tag.text
-        statuses[page_status] = statuses.get(page_status, 0) + 1
-        if page_status not in preview_status:
-            mismatch.append((link, page_status, preview_status))
+        try:
+            preview_status_tag = find_tag(row_tag, 'abbr')
+            preview_status = EXPECTED_STATUS[preview_status_tag.text[1:]]
+            a_tag = find_tag(row_tag, 'a', {'class': 'pep reference internal'})
+            href = a_tag['href']
+            link = urljoin(MAIN_PEP_URL, href)
+            soup = create_soup(session, link)
+            if soup is None:
+                continue
+            status_tag = find_tag(soup, 'abbr')
+            page_status = status_tag.text
+            statuses[page_status] = statuses.get(page_status, 0) + 1
+            if page_status not in preview_status:
+                mismatch.append((link, page_status, preview_status))
+        except (ParserFindTagException, RequestException) as error:
+            errors.append(error)
+
+    for error in errors:
+        logging.error(f'Ошибка: {error}')
     if mismatch:
         logging.info('Обнаружены несовпадающие статусы! \n')
         for pep in mismatch:

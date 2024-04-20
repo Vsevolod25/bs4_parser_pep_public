@@ -1,6 +1,14 @@
 from requests import RequestException
+from bs4 import BeautifulSoup
 
 from exceptions import ParserFindTagException
+
+
+def create_soup(session, url):
+    response = get_response(session, url)
+    if response is None:
+        return
+    return BeautifulSoup(response.text, features='lxml')
 
 
 def get_response(session, url):
@@ -8,8 +16,8 @@ def get_response(session, url):
         response = session.get(url)
         response.encoding = 'utf-8'
         return response
-    except RequestException as error:
-        raise error(
+    except RequestException:
+        raise RequestException(
             f'Возникла ошибка при загрузке страницы {url}',
         )
 
